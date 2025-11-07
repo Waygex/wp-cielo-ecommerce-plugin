@@ -1,15 +1,27 @@
-jQuery(function($) {
+jQuery(function ($) {
     'use strict';
 
     // Formata número do cartão
-    $('#cielo_card_number').on('input', function() {
+    $('#cielo_card_number').on('input', function () {
         let value = $(this).val().replace(/\s/g, '');
         let formattedValue = value.match(/.{1,4}/g);
         $(this).val(formattedValue ? formattedValue.join(' ') : value);
+
+        // Atualiza indicador de bandeira
+        updateCardBrand(value);
+    });
+
+    // Permite apenas números e espaços
+    $('#cielo_card_number').on('keypress', function (e) {
+        let char = String.fromCharCode(e.which);
+        if (!/[\d\s]/.test(char)) {
+            e.preventDefault();
+        }
+
     });
 
     // Formata data de validade
-    $('#cielo_card_expiry').on('input', function() {
+    $('#cielo_card_expiry').on('input', function () {
         let value = $(this).val().replace(/\D/g, '');
         if (value.length >= 2) {
             value = value.substring(0, 2) + '/' + value.substring(2, 4);
@@ -18,12 +30,26 @@ jQuery(function($) {
     });
 
     // Apenas números no CVV
-    $('#cielo_card_cvc').on('input', function() {
+    $('#cielo_card_cvc').on('input', function () {
         $(this).val($(this).val().replace(/\D/g, ''));
     });
 
+    // Atualiza indicador visual de bandeira
+    function updateCardBrand(cardNumber) {
+        let brand = detectCardBrand(cardNumber);
+
+        // Remove classe active de todos os logos
+        $('.cielo-card-logo').removeClass('active');
+
+        // Adiciona classe active ao logo correspondente
+        if (brand) {
+            $('.cielo-card-logo[data-brand="' + brand.toLowerCase() + '"]').addClass('active');
+        }
+    }
+
+
     // Validação do formulário
-    $('form.checkout').on('checkout_place_order_cielo_ecommerce', function() {
+    $('form.checkout').on('checkout_place_order_cielo_ecommerce', function () {
         if ($('#payment_method_cielo_ecommerce').is(':checked')) {
             let isValid = true;
 
@@ -31,21 +57,32 @@ jQuery(function($) {
             let cardNumber = $('#cielo_card_number').val().replace(/\s/g, '');
             if (cardNumber.length < 13 || cardNumber.length > 19) {
                 alert('Número do cartão inválido');
+                $('#cielo_card_number').focus();
+                isValid = false;
+            } else if (!luhnCheck(cardNumber)) {
+                alert('Número do cartão inválido (verificação Luhn falhou)');
+                $('#cielo_card_number').focus();
                 isValid = false;
             }
+
+            if (!isValid) return false;
 
             // Valida nome
             let cardHolder = $('#cielo_card_holder').val();
             if (cardHolder.length < 3) {
-                alert('Nome no cartão inválido');
                 isValid = false;
+                alert('Nome no cartão inválido');
+                $('#cielo_card_holder').focus();
             }
+
+            if (!isValid) return false;
 
             // Valida validade
             let expiry = $('#cielo_card_expiry').val();
             if (!/^\d{2}\/\d{2}$/.test(expiry)) {
-                alert('Data de validade inválida');
                 isValid = false;
+                alert('Data de validade inválida');
+                $('#cielo_card_expiry').focus();
             } else {
                 let parts = expiry.split('/');
                 let month = parseInt(parts[0]);
@@ -57,16 +94,21 @@ jQuery(function($) {
                 if (month < 1 || month > 12) {
                     alert('Mês inválido');
                     isValid = false;
+                    $('#cielo_card_expiry').focus();
                 } else if (year < currentYear || (year === currentYear && month < currentMonth)) {
                     alert('Cartão vencido');
                     isValid = false;
+                    $('#cielo_card_expiry').focus();
                 }
             }
+
+            if (!isValid) return false;
 
             // Valida CVV
             let cvc = $('#cielo_card_cvc').val();
             if (cvc.length < 3 || cvc.length > 4) {
                 alert('CVV inválido');
+                $('#cielo_card_cvc').focus();
                 isValid = false;
             }
 
@@ -76,17 +118,17 @@ jQuery(function($) {
     });
 
     // Detecta bandeira do cartão
-    $('#cielo_card_number').on('input', function() {
-        let cardNumber = $(this).val().replace(/\s/g, '');
-        let brand = detectCardBrand(cardNumber);
-        
-        // Remove classes de bandeira anteriores
-        $(this).removeClass('visa master amex elo hipercard');
-        
-        if (brand) {
-            $(this).addClass(brand.toLowerCase());
-        }
-    });
+    // $('#cielo_card_number').on('input', function() {
+    //     let cardNumber = $(this).val().replace(/\s/g, '');
+    //     let brand = detectCardBrand(cardNumber);
+
+    //     // Remove classes de bandeira anteriores
+    //     $(this).removeClass('visa master amex elo');
+
+    //     if (brand) {
+    //         $(this).addClass(brand.toLowerCase());
+    //     }
+    // });
 
     function detectCardBrand(number) {
         const patterns = {
@@ -94,7 +136,6 @@ jQuery(function($) {
             'master': /^5[1-5]/,
             'amex': /^3[47]/,
             'elo': /^636368|^438935|^504175|^451416|^636297/,
-            'hipercard': /^606282|^3841/,
             'diners': /^36|^38/
         };
 
