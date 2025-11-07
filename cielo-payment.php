@@ -60,8 +60,10 @@ function cielo_ecommerce_init()
 
             add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
             add_action('wp_enqueue_scripts', array($this, 'payment_scripts'));
-
-            $this->cielo_log('Cielo eCommerce 3.0 Gateway iniciado com sucesso.');
+            
+            if ($this->enable_debug) {
+                $this->cielo_log('Cielo eCommerce 3.0 Gateway iniciado com sucesso.');
+            }
         }
 
         public function init_form_fields()
