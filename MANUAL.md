@@ -40,6 +40,10 @@ O plugin permite configurações personalizadas para necessidades diversas, tais
 
     ![Imagem de configuração](assets/images/credit-settings-page.png)
 
+## Exemplo de uso: Cartão de Crédito
+
+![Imagem de configuração](assets/images/credit-usage.png)
+
 ## Configuração Pix
 
 O plugin permite configurações personalizadas para necessidades diversas, tais quais:
@@ -54,6 +58,14 @@ O plugin permite configurações personalizadas para necessidades diversas, tais
 * Ativar Debug (padrão desligado)
 
     ![Imagem de configuração](assets/images/pix-settings-page.png)
+
+## Exemplo de uso: Pix
+
+* Opção no checkout
+    ![Imagem de configuração](assets/images/pix-usage.png)
+
+* Tela de pagamento (QR Code)
+    ![Imagem de configuração](assets/images/pix-confirmation.png)
 
 ## Logs
 
