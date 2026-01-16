@@ -24,7 +24,7 @@ class WC_Cielo_Pix_Gateway extends WC_Payment_Gateway
         $this->icon = '';
         $this->has_fields = true;
         $this->method_title = __('Cielo eCommerce 3.0 - Pix', 'cielo-ecommerce');
-        $this->method_description = __('Aceite pagamentos via Pix com Cielo eCommerce 3.0 (Cielo2)', 'cielo-ecommerce');
+        $this->method_description = __('Aceite pagamentos via Pix com Cielo eCommerce 3.0', 'cielo-ecommerce');
 
         $this->supports = array(
             'products'
