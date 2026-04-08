@@ -815,6 +815,115 @@ class WC_Cielo_Pix_Gateway extends WC_Payment_Gateway
     }
 
     /**
+     * Check payment status for a given order (callable programmatically)
+     *
+     * @param int $order_id
+     * @return bool Whether the order status was updated
+     */
+    public function check_payment_by_order_id($order_id)
+    {
+        $order = wc_get_order($order_id);
+
+        if (!$order) {
+            $this->cielo_log("check_payment_by_order_id: Pedido #{$order_id} não encontrado.");
+            return false;
+        }
+
+        $current_status = $order->get_status();
+
+        if (in_array($current_status, array('processing', 'completed', 'cancelled', 'failed'))) {
+            return false;
+        }
+
+        // Check if QR Code has already been marked as expired
+        $notes = wc_get_order_notes(array('order_id' => $order->get_id()));
+        $last_pix_note = null;
+        foreach ($notes as $note) {
+            if (strpos($note->content, 'Pix QR Code expirado') !== false) {
+                return false; // Already expired, no need to check again
+            }
+            if (strpos($note->content, 'Verificação de pagamento Pix') !== false) {
+                $last_pix_note = $note;
+            }
+        }
+
+        // Check if QR Code has expired
+        $order_date = $order->get_date_created();
+        $expiration_seconds = $this->qrcode_expiration_format === 'hours'
+            ? intval($this->qrcode_expiration) * 3600
+            : intval($this->qrcode_expiration) * 60;
+        $expiration_time = $order_date->getTimestamp() + $expiration_seconds;
+
+        if (time() > $expiration_time) {
+            $order->update_status('failed');
+            $order->add_order_note(__('Pix QR Code expirado.', 'cielo-ecommerce'));
+            return false;
+        }
+
+        $payment_id = $order->get_meta('_cielo_pix_payment_id');
+
+        if (empty($payment_id)) {
+            $payment_id = $this->get_transaction_id_from_notes($order);
+        }
+
+        if (empty($payment_id)) {
+            $this->cielo_log("check_payment_by_order_id: Pedido #{$order_id} sem Payment ID.");
+            $order->add_order_note(__('Verificação de pagamento Pix: Payment ID não encontrado.', 'cielo-ecommerce'));
+            return false;
+        }
+
+        $query_result = $this->query_transaction_status($payment_id);
+
+        if (is_wp_error($query_result)) {
+            $order->add_order_note(
+                sprintf(__('Verificação de pagamento Pix falhou: %s', 'cielo-ecommerce'), $query_result->get_error_message())
+            );
+            return false;
+        }
+
+        $response_body = $query_result['body'];
+        $response_code = $query_result['code'];
+
+        if ($response_code != 200 || !isset($response_body['Payment']['Status'])) {
+            $order->add_order_note(__('Verificação de pagamento Pix: resposta inválida da API Cielo.', 'cielo-ecommerce'));
+            return false;
+        }
+
+        $cielo_status = $response_body['Payment']['Status'];
+        $updated = $this->update_order_status_from_cielo($order, $cielo_status, $payment_id, $response_body);
+
+        if (!$updated) {
+            $order->add_order_note(
+                sprintf(
+                    __('Verificação de pagamento Pix: sem alteração de status. Status Cielo: %s', 'cielo-ecommerce'),
+                    $this->get_status_message($cielo_status)
+                )
+            );
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Extract Cielo transaction ID from order notes
+     *
+     * @param WC_Order $order
+     * @return string
+     */
+    private function get_transaction_id_from_notes($order)
+    {
+        $notes = wc_get_order_notes(array('order_id' => $order->get_id()));
+
+        foreach ($notes as $note) {
+            if (preg_match('/ID da Transação:\s*([a-f0-9\-]{36})/i', $note->content, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Log messages using WooCommerce logger
      *
      * @param string $message
